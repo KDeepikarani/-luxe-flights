@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>My Bookings — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.bk-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:16px;transition:var(--transition);}
+.bk-card:hover{border-color:var(--border2);}
+.bk-top{background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(6,6,16,0.4));padding:20px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);}
+.bk-body{padding:20px 24px;}
+.bk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.bk-item{background:var(--bg3);border-radius:10px;padding:10px 12px;}
+.bk-il{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.bk-iv{font-size:13px;font-weight:500;}
+.bk-foot{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.filter-pill{padding:7px 18px;border-radius:50px;font-size:13px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:var(--transition);}
+.filter-pill.active,.filter-pill:hover{border-color:var(--gold);color:var(--gold2);background:rgba(201,168,76,0.08);}
+/* Refund preview box */
+.rf-box{background:var(--bg3);border-radius:14px;padding:18px;}
+.rf-row{display:flex;justify-content:space-between;font-size:14px;padding:8px 0;border-bottom:1px solid rgba(37,37,64,0.5);}
+.rf-row:last-child{border-bottom:none;padding-top:12px;font-weight:600;}
+/* Refund timeline estimate */
+.timeline-estimate{display:flex;flex-direction:column;gap:0;margin-top:14px;}
+.te-item{display:flex;align-items:flex-start;gap:12px;position:relative;padding-bottom:14px;}
+.te-item:last-child{padding-bottom:0;}
+.te-item::before{content:'';position:absolute;left:9px;top:20px;bottom:0;width:2px;background:var(--border);}
+.te-item:last-child::before{display:none;}
+.te-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px;}
+.te-dot.done{background:var(--gold);color:#060610;}
+.te-dot.active{background:transparent;border:2px solid var(--sky);color:var(--sky);}
+.te-dot.pending{background:var(--surface2);border:2px solid var(--border);color:var(--text3);}
+.te-text{font-size:13px;font-weight:500;}
+.te-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div><div class="page-title">My Bookings</div><div class="page-sub">Manage your flight reservations</div></div>
+      <a href="/flights" class="btn btn-gold btn-sm">+ New Booking</a>
+    </div>
+    <div class="page-body fade-in">
+      <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+        <div class="filter-pill active" onclick="setFilter('all',this)">All</div>
+        <div class="filter-pill" onclick="setFilter('confirmed',this)">✈ Confirmed</div>
+        <div class="filter-pill" onclick="setFilter('completed',this)">✓ Completed</div>
+        <div class="filter-pill" onclick="setFilter('cancelled',this)">✕ Cancelled</div>
+      </div>
+      <div id="bookingsList"><div class="plane-loader" style="padding:60px"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel & Refund Modal -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Cancel & Refund</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Your refund will be automatically calculated</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('cancelModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Flight info -->
+      <div id="cancelInfo" style="margin-bottom:16px"></div>
+
+      <!-- Refund calculation -->
+      <div class="rf-box" id="refundBox">
+        <div style="text-align:center"><span class="loader"></span></div>
+      </div>
+
+      <!-- Refund timeline estimate -->
+      <div id="refundTimeline" style="display:none;margin-top:14px">
+        <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Estimated Refund Timeline</div>
+        <div class="timeline-estimate" id="timelineSteps"></div>
+      </div>
+
+      <!-- Reason dropdown -->
+      <div class="form-group" style="margin-top:18px">
+        <label class="form-label">Reason for Cancellation *</label>
+        <select id="cancelReason" class="form-input" onchange="reasonChanged()">
+          <option value="">— Select a reason —</option>
+          <option value="change_of_plans">🔄 Change of Plans</option>
+          <option value="found_better_deal">💰 Found a Better Deal</option>
+          <option value="emergency">🚨 Emergency</option>
+          <option value="weather_conditions">⛈ Weather Conditions</option>
+          <option value="health_issues">🏥 Health Issues</option>
+          <option value="travel_restrictions">🚫 Travel Restrictions</option>
+          <option value="double_booking">📋 Double Booking</option>
+          <option value="work_commitment">💼 Work Commitment</option>
+          <option value="visa_issues">📄 Visa Issues</option>
+          <option value="family_emergency">👨‍👩‍👧 Family Emergency</option>
+          <option value="other">📝 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Additional Details (optional)</label>
+        <textarea id="cancelDetails" class="form-input" rows="3" placeholder="Tell us more — this helps us improve our service"></textarea>
+      </div>
+      <div class="alert-box alert-danger" style="font-size:13px">⚠️ This cannot be undone. Once cancelled, the booking cannot be restored.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">Keep Booking</button>
+      <button class="btn btn-red" id="confirmCancelBtn" onclick="confirmCancel()" disabled>Confirm Cancellation</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAuth() || API.isAdmin()) location.href = API.isAdmin() ? '/admin' : '/login';
+buildSidebar('My Bookings');
+
+let allBookings = [], currentFilter = 'all', cancelId = null, refundData = null;
+
+async function load() {
+  const {ok, data} = await API.get('/bookings');
+  if(ok) { allBookings = data.bookings || []; render(); }
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function render() {
+  const list = currentFilter === 'all' ? allBookings : allBookings.filter(b => b.status === currentFilter);
+  const el = document.getElementById('bookingsList');
+  if(!list.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✈</div>
+      <div class="empty-title">No ${currentFilter === 'all' ? '' : currentFilter + ' '}bookings</div>
+      <a href="/flights" class="btn btn-gold btn-sm" style="margin-top:16px">Search Flights</a></div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(b => {
+    const f = b.flightId || {};
+    const pass = b.passengers || [];
+    const statusColors = { confirmed:'var(--green2)', completed:'var(--sky2)', cancelled:'var(--red2)' };
+    return `<div class="bk-card">
+      <div class="bk-top">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:700;color:var(--gold2)">${f.from?.code||'?'} → ${f.to?.code||'?'}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">${f.from?.city||''} → ${f.to?.city||''} · ${f.airline||''} ${f.flightNumber||''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="text-align:right">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold2)">${fmt.currency(b.totalAmount)}</div>
+            <div style="font-size:11px;color:var(--text3)">Ref: ${b.bookingRef}</div>
+          </div>
+          <span class="badge b-${b.status}">${b.status.toUpperCase()}</span>
+        </div>
+      </div>
+      <div class="bk-body">
+        <div class="bk-grid">
+          <div class="bk-item"><div class="bk-il">Date</div><div class="bk-iv">${fmt.date(f.date)}</div></div>
+          <div class="bk-item"><div class="bk-il">Departs</div><div class="bk-iv">${f.departureTime||'—'}</div></div>
+          <div class="bk-item"><div class="bk-il">Arrives</div><div class="bk-iv">${f.arrivalTime||'—'}</div></div>
+          <div class="bk-item"><div class="bk-il">Duration</div><div class="bk-iv">${f.duration||'—'}</div></div>
+          <div class="bk-item"><div class="bk-il">Class</div><div class="bk-iv">${b.class}</div></div>
+          <div class="bk-item"><div class="bk-il">Passengers</div><div class="bk-iv">${pass.length}</div></div>
+          <div class="bk-item"><div class="bk-il">Baggage</div><div class="bk-iv">${f.baggage||'20kg'}</div></div>
+          <div class="bk-item"><div class="bk-il">Payment</div><div class="bk-iv">${b.paymentMethod||'Card'}</div></div>
+        </div>
+        ${pass.length ? `<div style="font-size:13px;color:var(--text2);margin-bottom:6px">👤 ${pass.map(p=>`${p.name} (${p.age}, ${p.gender})`).join(', ')}</div>` : ''}
+        ${b.specialRequests ? `<div style="font-size:12px;color:var(--text3)">💬 ${b.specialRequests}</div>` : ''}
+      </div>
+      <div class="bk-foot">
+        ${b.status === 'confirmed' ? `
+          <button class="btn btn-sky btn-sm" onclick="location.href='/track?ref=${b.bookingRef}'">📍 Track</button>
+          <button class="btn btn-red btn-sm" onclick="openCancel('${b._id}')">↩ Cancel & Refund</button>
+        ` : ''}
+        ${b.status === 'cancelled' ? `<span style="font-size:12px;color:var(--text3);align-self:center">Booking cancelled · <a href="/refunds" style="color:var(--gold2)">View refund status →</a></span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Open cancel modal ──
+async function openCancel(id) {
+  cancelId = id;
+  refundData = null;
+  document.getElementById('cancelReason').value = '';
+  document.getElementById('cancelDetails').value = '';
+  document.getElementById('confirmCancelBtn').disabled = true;
+  document.getElementById('refundTimeline').style.display = 'none';
+
+  const b = allBookings.find(x => x._id === id);
+  const f = b?.flightId || {};
+  document.getElementById('cancelInfo').innerHTML = `
+    <div class="highlight-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:600;font-size:15px">${f.from?.city||'?'} → ${f.to?.city||'?'}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px">${b.bookingRef} · ${fmt.date(f.date)} · ${f.departureTime} · ${b.class}</div>
+        </div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold2)">${fmt.currency(b.totalAmount)}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('refundBox').innerHTML = '<div style="text-align:center;padding:10px"><span class="loader"></span></div>';
+  openModal('cancelModal');
+
+  // Fetch refund preview
+  const {ok, data} = await API.get(`/bookings/${id}/refund-preview`);
+  if(ok) {
+    refundData = data.refundPreview;
+    showRefundPreview(data.refundPreview);
+  } else {
+    document.getElementById('refundBox').innerHTML = '<div style="color:var(--red2);font-size:13px">Could not calculate refund. Please try again.</div>';
+  }
+}
+
+function showRefundPreview(p) {
+  const pct = p.refundPercentage;
+  const col = pct === 100 ? 'var(--green2)' : pct >= 75 ? 'var(--gold2)' : pct > 0 ? 'orange' : 'var(--red2)';
+
+  document.getElementById('refundBox').innerHTML = `
+    <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Automatic Refund Calculation</div>
+    <div class="rf-row"><span style="color:var(--text3)">Original Amount Paid</span><span>${fmt.currency(p.originalAmount)}</span></div>
+    <div class="rf-row"><span style="color:var(--text3)">Refund Rate</span><span style="color:${col};font-weight:700;font-size:16px">${pct}%</span></div>
+    <div class="rf-row"><span style="color:var(--text3)">Policy Applied</span><span style="font-size:12px;color:var(--text3);text-align:right;max-width:55%">${p.policy}</span></div>
+    <div class="rf-row"><span>You Will Receive</span><span style="color:var(--teal);font-family:'Cormorant Garamond',serif;font-size:22px">${fmt.currency(p.refundAmount)}</span></div>`;
+
+  // Show timeline
+  if(pct > 0) {
+    const today = new Date();
+    const d1 = new Date(today); d1.setDate(d1.getDate() + 1);
+    const d3 = new Date(today); d3.setDate(d3.getDate() + 3);
+    const d5 = new Date(today); d5.setDate(d5.getDate() + 5);
+    const d7 = new Date(today); d7.setDate(d7.getDate() + 7);
+
+    document.getElementById('timelineSteps').innerHTML = `
+      <div class="te-item">
+        <div class="te-dot done">✓</div>
+        <div><div class="te-text">Cancellation Submitted</div><div class="te-sub">Today · ${fmt.datetime(today)}</div></div>
+      </div>
+      <div class="te-item">
+        <div class="te-dot active">2</div>
+        <div><div class="te-text">Refund Processing Begins</div><div class="te-sub">By ${fmt.date(d1)} · Initiated with payment gateway</div></div>
+      </div>
+      <div class="te-item">
+        <div class="te-dot pending">3</div>
+        <div><div class="te-text">Bank Processing</div><div class="te-sub">By ${fmt.date(d3)} · Under review by your bank</div></div>
+      </div>
+      <div class="te-item">
+        <div class="te-dot pending">4</div>
+        <div><div class="te-text">Refund Credited</div><div class="te-sub">By ${fmt.date(d5)} – ${fmt.date(d7)} · ${fmt.currency(p.refundAmount)} to your original payment method</div></div>
+      </div>`;
+    document.getElementById('refundTimeline').style.display = 'block';
+  } else {
+    document.getElementById('refundTimeline').style.display = 'none';
+  }
+}
+
+function reasonChanged() {
+  const reason = document.getElementById('cancelReason').value;
+  document.getElementById('confirmCancelBtn').disabled = !reason;
+}
+
+async function confirmCancel() {
+  const reason = document.getElementById('cancelReason').value;
+  if(!reason) { Toast.show('Please select a cancellation reason', 'error'); return; }
+  const btn = document.getElementById('confirmCancelBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Processing...';
+
+  const {ok, data} = await API.post(`/bookings/${cancelId}/cancel`, {
+    reason, reasonDetails: document.getElementById('cancelDetails').value
+  });
+  btn.disabled = false; btn.innerHTML = 'Confirm Cancellation';
+
+  if(ok) {
+    const msg = data.refundAmount > 0
+      ? `Booking cancelled! Refund of ${fmt.currency(data.refundAmount)} (${data.refundPercentage}%) will be processed within 5–7 business days.`
+      : 'Booking cancelled. No refund applicable as per cancellation policy.';
+    Toast.show(msg, 'success', 8000);
+    closeModal('cancelModal');
+    load();
+    setTimeout(() => location.href = '/refunds', 2000);
+  } else {
+    Toast.show(data.message || 'Cancellation failed', 'error');
+  }
+}
+
+load();
+</script>
+</body>
+</html>

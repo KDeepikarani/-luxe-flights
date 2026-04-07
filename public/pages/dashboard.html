@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.welcome-banner{background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(56,189,248,0.06));border:1px solid rgba(201,168,76,0.2);border-radius:20px;padding:28px 32px;margin-bottom:28px;position:relative;overflow:hidden;}
+.welcome-banner::after{content:'✈';position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:72px;opacity:0.07;}
+.quick-action{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;text-align:center;cursor:pointer;transition:var(--transition);}
+.quick-action:hover{border-color:rgba(201,168,76,0.35);transform:translateY(-3px);box-shadow:0 15px 40px rgba(0,0,0,0.3);}
+.quick-action-icon{font-size:32px;margin-bottom:10px;}
+.quick-action-label{font-size:13px;font-weight:500;color:var(--text2);}
+.activity-item{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--border);}
+.activity-item:last-child{border-bottom:none;}
+.activity-icon{width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub" id="dateDisplay"></div>
+      </div>
+      <a href="/flights" class="btn btn-gold btn-sm">✈ Search Flights</a>
+    </div>
+    <div class="page-body fade-in">
+      <div class="welcome-banner">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;margin-bottom:6px" id="welcomeMsg">Welcome back!</div>
+        <div style="color:var(--text3);font-size:14px">Your flight dashboard at a glance</div>
+      </div>
+
+      <div class="g g-4 stagger" style="margin-bottom:28px">
+        <div class="stat-card stat-gold"><div class="stat-icon">✈</div><div class="stat-val" id="sFlights">—</div><div class="stat-label">Total Bookings</div></div>
+        <div class="stat-card stat-sky"><div class="stat-icon">✓</div><div class="stat-val" id="sActive">—</div><div class="stat-label">Active Bookings</div></div>
+        <div class="stat-card stat-red"><div class="stat-icon">↩</div><div class="stat-val" id="sRefunds">—</div><div class="stat-label">Refund Requests</div></div>
+        <div class="stat-card stat-green"><div class="stat-icon">₹</div><div class="stat-val" id="sSpent">—</div><div class="stat-label">Total Spent</div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px">
+        <h3 style="font-size:16px;margin-bottom:18px">Quick Actions</h3>
+        <div class="g g-4">
+          <div class="quick-action" onclick="location.href='/flights'"><div class="quick-action-icon">🔍</div><div class="quick-action-label">Search Flights</div></div>
+          <div class="quick-action" onclick="location.href='/my-bookings'"><div class="quick-action-icon">✈</div><div class="quick-action-label">My Bookings</div></div>
+          <div class="quick-action" onclick="location.href='/refunds'"><div class="quick-action-icon">↩</div><div class="quick-action-label">Refund Tracker</div></div>
+          <div class="quick-action" onclick="location.href='/support'"><div class="quick-action-icon">💬</div><div class="quick-action-label">Get Support</div></div>
+        </div>
+      </div>
+
+      <div class="g g-2">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+            <h3 style="font-size:16px">Recent Bookings</h3>
+            <a href="/my-bookings" style="font-size:13px;color:var(--gold2)">View all →</a>
+          </div>
+          <div id="recentBookings"><div class="plane-loader"></div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+            <h3 style="font-size:16px">Refund Status</h3>
+            <a href="/refunds" style="font-size:13px;color:var(--gold2)">View all →</a>
+          </div>
+          <div id="recentRefunds"><div class="plane-loader"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAuth()||API.isAdmin()){location.href=API.isAdmin()?'/admin':'/login';}
+const user=API.user();
+buildSidebar('Dashboard');
+document.getElementById('welcomeMsg').textContent=`Welcome back, ${user.name}!`;
+document.getElementById('dateDisplay').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+async function loadDash(){
+  const [br,rr]=await Promise.all([API.get('/bookings'),API.get('/bookings/my/refunds')]);
+  if(br.ok){
+    const b=br.data.bookings||[];
+    document.getElementById('sFlights').textContent=b.length;
+    document.getElementById('sActive').textContent=b.filter(x=>x.status==='confirmed').length;
+    document.getElementById('sSpent').textContent=fmt.currency(b.filter(x=>x.status!=='cancelled').reduce((s,x)=>s+x.totalAmount,0));
+    const el=document.getElementById('recentBookings');
+    if(!b.length){el.innerHTML=`<div class="empty"><div class="empty-icon">✈</div><div class="empty-title">No bookings yet</div><a href="/flights" class="btn btn-gold btn-sm" style="margin-top:12px">Search Flights</a></div>`;return;}
+    el.innerHTML=b.slice(0,5).map(x=>{
+      const f=x.flightId||{};
+      return `<div class="activity-item">
+        <div class="activity-icon">✈</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${f.from?.code||'?'} → ${f.to?.code||'?'}</div>
+          <div style="font-size:11px;color:var(--text3)">${x.bookingRef} · ${fmt.date(f.date)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;color:var(--gold2)">${fmt.currency(x.totalAmount)}</div>
+          <span class="badge b-${x.status}">${x.status}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(rr.ok){
+    const r=rr.data.cancellations||[];
+    document.getElementById('sRefunds').textContent=r.length;
+    const el=document.getElementById('recentRefunds');
+    if(!r.length){el.innerHTML=`<div class="empty"><div class="empty-icon">↩</div><div class="empty-title">No refund requests</div><div class="empty-text">Cancel a booking to see refund status here</div></div>`;return;}
+    el.innerHTML=r.slice(0,5).map(x=>`<div class="activity-item">
+      <div class="activity-icon" style="background:rgba(56,189,248,0.1)">↩</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${x.cancellationRef}</div>
+        <div style="font-size:11px;color:var(--text3)">${fmt.reason(x.reason)} · ${fmt.date(x.createdAt)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;color:var(--teal)">${fmt.currency(x.refundAmount)}</div>
+        <span class="badge b-${x.refundStatus}">${x.refundStatus}</span>
+      </div>
+    </div>`).join('');
+  }
+}
+loadDash();
+</script>
+</body>
+</html>

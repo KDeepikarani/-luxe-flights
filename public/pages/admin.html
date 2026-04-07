@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin Panel — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.tab-pane{display:none;}.tab-pane.active{display:block;}
+.chart-bar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.cb-label{width:110px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0;}
+.cb-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.cb-fill{height:100%;border-radius:4px;transition:width 0.7s ease;}
+.cb-val{font-size:12px;color:var(--text3);width:50px;}
+.flight-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.ticket-msg{padding:12px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px;}
+.ticket-msg:last-child{border-bottom:none;}
+.tm-sender{font-size:11px;font-weight:600;letter-spacing:0.5px;}
+.tm-content{font-size:13px;line-height:1.6;color:var(--text2);}
+.tm-time{font-size:10px;color:var(--text3);}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div><div class="page-title">Admin Control Panel</div><div class="page-sub">Full platform management</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="refresh()">↻ Refresh</button>
+        <button class="btn btn-gold btn-sm" onclick="openModal('addFlightModal')">+ Add Flight</button>
+      </div>
+    </div>
+    <div class="page-body fade-in">
+      <div class="tabs" id="mainTabs">
+        <div class="tab active" onclick="goTab('overview',this)">📊 Overview</div>
+        <div class="tab" onclick="goTab('flights',this)">✈ Flights</div>
+        <div class="tab" onclick="goTab('bookings',this)">◈ Bookings</div>
+        <div class="tab" onclick="goTab('refunds',this)">↩ Refunds</div>
+        <div class="tab" onclick="goTab('users',this)">◉ Users</div>
+        <div class="tab" onclick="goTab('support',this)">💬 Support <span id="unreadBadge" class="sb-badge" style="display:none">0</span></div>
+      </div>
+
+      <!-- OVERVIEW -->
+      <div class="tab-pane active" id="pane-overview">
+        <div class="g g-4 stagger" style="margin-bottom:28px" id="adminStats"></div>
+        <div class="g g-2" style="margin-bottom:24px">
+          <div class="card"><h3 style="font-size:15px;margin-bottom:18px">Revenue by Route</h3><div id="routeChart"></div></div>
+          <div class="card"><h3 style="font-size:15px;margin-bottom:18px">Cancellation Reasons</h3><div id="reasonChart"></div></div>
+        </div>
+        <div class="g g-2">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px">Recent Bookings</h3><span class="btn btn-ghost btn-sm" onclick="goTab('bookings',document.querySelectorAll('.tab')[2])">View All</span></div>
+            <div id="overviewBookings"></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="font-size:15px">Pending Refunds</h3><span class="btn btn-ghost btn-sm" onclick="goTab('refunds',document.querySelectorAll('.tab')[3])">View All</span></div>
+            <div id="overviewRefunds"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FLIGHTS -->
+      <div class="tab-pane" id="pane-flights">
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+          <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;">
+            <span style="color:var(--text3)">⌕</span>
+            <input type="text" id="flightSearch" class="form-input" style="border:none;background:none;padding:0" placeholder="Search by flight no, airline, city..." oninput="loadFlights()">
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="openModal('addFlightModal')">+ Add Flight</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Flight</th><th>Airline</th><th>Route</th><th>Date</th><th>Times</th><th>Class</th><th>Price</th><th>Seats</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="flightsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOKINGS -->
+      <div class="tab-pane" id="pane-bookings">
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;">
+            <span style="color:var(--text3)">⌕</span>
+            <input type="text" id="bSearch" class="form-input" style="border:none;background:none;padding:0" placeholder="Search booking ref..." oninput="loadBookings()">
+          </div>
+          <select id="bStatusFilter" class="form-input" style="width:160px" onchange="loadBookings()">
+            <option value="">All Statuses</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Ref</th><th>User</th><th>Flight</th><th>Route</th><th>Date</th><th>Class</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="bookingsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REFUNDS -->
+      <div class="tab-pane" id="pane-refunds">
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <select id="rfFilter" class="form-input" style="width:180px" onchange="loadRefunds()">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="processed">Processed</option>
+            <option value="completed">Completed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Ref</th><th>User</th><th>Flight</th><th>Reason</th><th>Original</th><th>Refund</th><th>%</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+              <tbody id="refundsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="tab-pane" id="pane-users">
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;">
+            <span style="color:var(--text3)">⌕</span>
+            <input type="text" id="uSearch" class="form-input" style="border:none;background:none;padding:0" placeholder="Search name or email..." oninput="loadUsers()">
+          </div>
+          <select id="uRoleFilter" class="form-input" style="width:140px" onchange="loadUsers()">
+            <option value="">All Roles</option><option value="user">User</option><option value="admin">Admin</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('addAdminModal')">+ Add Admin</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>User</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Joined</th><th>Last Login</th><th>Actions</th></tr></thead>
+              <tbody id="usersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUPPORT -->
+      <div class="tab-pane" id="pane-support">
+        <div style="display:flex;gap:10px;margin-bottom:20px">
+          <select id="tkFilter" class="form-input" style="width:160px" onchange="loadSupport()">
+            <option value="">All Tickets</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div class="g g-2" id="supportGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FLIGHT MODAL -->
+<div class="modal-overlay" id="addFlightModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-head"><div class="modal-title" id="flightModalTitle">Add New Flight</div><button class="modal-close" onclick="closeModal('addFlightModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editFlightId">
+      <div class="flight-form-grid">
+        <div class="form-group"><label class="form-label">Flight Number *</label><input type="text" id="fNumber" class="form-input" placeholder="LX101"></div>
+        <div class="form-group"><label class="form-label">Airline Name *</label><input type="text" id="fAirline" class="form-input" placeholder="Luxe Air"></div>
+        <div class="form-group"><label class="form-label">From City *</label><input type="text" id="fFromCity" class="form-input" placeholder="Mumbai"></div>
+        <div class="form-group"><label class="form-label">From Airport *</label><input type="text" id="fFromAirport" class="form-input" placeholder="Chhatrapati Shivaji International"></div>
+        <div class="form-group"><label class="form-label">From Code *</label><input type="text" id="fFromCode" class="form-input" placeholder="BOM" maxlength="3"></div>
+        <div class="form-group"><label class="form-label">To City *</label><input type="text" id="fToCity" class="form-input" placeholder="Delhi"></div>
+        <div class="form-group"><label class="form-label">To Airport *</label><input type="text" id="fToAirport" class="form-input" placeholder="Indira Gandhi International"></div>
+        <div class="form-group"><label class="form-label">To Code *</label><input type="text" id="fToCode" class="form-input" placeholder="DEL" maxlength="3"></div>
+        <div class="form-group"><label class="form-label">Departure Time *</label><input type="time" id="fDepTime" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Arrival Time *</label><input type="time" id="fArrTime" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Duration *</label><input type="text" id="fDuration" class="form-input" placeholder="2h 30m"></div>
+        <div class="form-group"><label class="form-label">Date *</label><input type="date" id="fDate" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Class *</label><select id="fClass" class="form-input"><option value="Economy">Economy</option><option value="Business">Business</option><option value="First Class">First Class</option></select></div>
+        <div class="form-group"><label class="form-label">Price (₹) *</label><input type="number" id="fPrice" class="form-input" placeholder="3500"></div>
+        <div class="form-group"><label class="form-label">Total Seats *</label><input type="number" id="fTotalSeats" class="form-input" placeholder="150"></div>
+        <div class="form-group"><label class="form-label">Available Seats *</label><input type="number" id="fAvailSeats" class="form-input" placeholder="150"></div>
+        <div class="form-group"><label class="form-label">Stops</label><input type="number" id="fStops" class="form-input" value="0" min="0"></div>
+        <div class="form-group"><label class="form-label">Baggage Allowance</label><input type="text" id="fBaggage" class="form-input" placeholder="20kg"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Amenities (comma-separated)</label><input type="text" id="fAmenities" class="form-input" placeholder="WiFi, Meal, Entertainment, USB Charging"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <input type="checkbox" id="fRefundable" checked style="width:16px;height:16px;cursor:pointer">
+        <label for="fRefundable" class="form-label" style="margin:0;cursor:pointer">Refundable Ticket</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addFlightModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveFlight()">Save Flight</button>
+    </div>
+  </div>
+</div>
+
+<!-- REFUND STATUS MODAL -->
+<div class="modal-overlay" id="rfModal">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">Update Refund Status</div><button class="modal-close" onclick="closeModal('rfModal')">✕</button></div>
+    <div class="modal-body">
+      <div id="rfModalInfo" style="margin-bottom:16px"></div>
+      <div class="form-group"><label class="form-label">New Status</label>
+        <select id="rfNewStatus" class="form-input">
+          <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="processed">Processed</option>
+          <option value="completed">Completed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Admin Notes</label><textarea id="rfNotes" class="form-input" rows="3" placeholder="Internal notes..."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('rfModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="updateRefund()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPORT TICKET MODAL -->
+<div class="modal-overlay" id="supportModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head"><div class="modal-title">Support Ticket</div><button class="modal-close" onclick="closeModal('supportModal')">✕</button></div>
+    <div class="modal-body">
+      <div id="supportTicketInfo" style="margin-bottom:16px"></div>
+      <div id="supportMessages" style="max-height:360px;overflow-y:auto;background:var(--bg3);border-radius:12px;padding:16px;margin-bottom:16px"></div>
+      <div class="form-group"><label class="form-label">Reply to User</label><textarea id="adminReply" class="form-input" rows="3" placeholder="Type your reply..."></textarea></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+        <input type="checkbox" id="sendEmail" checked style="width:16px;height:16px;cursor:pointer">
+        <label for="sendEmail" style="font-size:13px;color:var(--text2);cursor:pointer">Send reply to user's email address</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-red btn-sm" id="flagTicketBtn" onclick="flagTicket()">⚑ Flag</button>
+      <select id="tkStatusUpdate" class="form-input" style="width:140px">
+        <option value="open">Open</option>
+        <option value="in_progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button class="btn btn-ghost" onclick="closeModal('supportModal')">Close</button>
+      <button class="btn btn-gold" onclick="sendAdminReply()">📧 Send Reply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ADMIN MODAL -->
+<div class="modal-overlay" id="addAdminModal">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">Create Admin Account</div><button class="modal-close" onclick="closeModal('addAdminModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="adName" class="form-input" placeholder="Admin Name"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" id="adEmail" class="form-input" placeholder="admin@email.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input type="password" id="adPass" class="form-input" placeholder="Min. 6 characters"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addAdminModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="createAdmin()">Create Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-overlay" id="editUserModal">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">Edit User</div><button class="modal-close" onclick="closeModal('editUserModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="euId">
+      <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="euName" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" id="euEmail" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="euPhone" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Role</label><select id="euRole" class="form-input"><option value="user">User</option><option value="admin">Admin</option></select></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('editUserModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAdmin()) location.href='/login';
+buildSidebar('admin');
+
+let activeTab='overview', currentRfId=null, currentTicketId=null, editFlightId=null;
+const urlTab=new URLSearchParams(location.search).get('tab');
+if(urlTab) goTab(urlTab, document.querySelector(`.tab:nth-child(${['overview','flights','bookings','refunds','users','support'].indexOf(urlTab)+1})`));
+
+function goTab(name, el){
+  activeTab=name;
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const loaders={flights:loadFlights,bookings:loadBookings,refunds:loadRefunds,users:loadUsers,support:loadSupport,overview:loadOverview};
+  loaders[name]?.();
+}
+
+function refresh(){ const l={overview:loadOverview,flights:loadFlights,bookings:loadBookings,refunds:loadRefunds,users:loadUsers,support:loadSupport}; l[activeTab]?.(); Toast.show('Refreshed','info',1500); }
+
+// ===== OVERVIEW =====
+async function loadOverview(){
+  const {ok,data}=await API.get('/admin/stats'); if(!ok) return;
+  const {stats,bookingsByStatus,topRoutes,cancelReasons,recentBookings,recentCancellations}=data;
+
+  document.getElementById('adminStats').innerHTML=`
+    <div class="stat-card stat-gold"><div class="stat-icon">◉</div><div class="stat-val">${stats.totalUsers}</div><div class="stat-label">Total Users</div></div>
+    <div class="stat-card stat-sky"><div class="stat-icon">✈</div><div class="stat-val">${stats.totalFlights}</div><div class="stat-label">Active Flights</div></div>
+    <div class="stat-card stat-green"><div class="stat-icon">₹</div><div class="stat-val" style="color:var(--gold2)">${fmt.currency(stats.totalRevenue)}</div><div class="stat-label">Total Revenue</div></div>
+    <div class="stat-card stat-red"><div class="stat-icon">↩</div><div class="stat-val" style="color:var(--red2)">${stats.pendingRefunds}</div><div class="stat-label">Pending Refunds</div></div>`;
+
+  const maxR=Math.max(1,...(topRoutes||[]).map(r=>r.count));
+  document.getElementById('routeChart').innerHTML=(topRoutes||[]).length?topRoutes.map(r=>`
+    <div class="chart-bar">
+      <div class="cb-label">${r._id.from}→${r._id.to}</div>
+      <div class="cb-track"><div class="cb-fill" style="width:${r.count/maxR*100}%;background:var(--gold)"></div></div>
+      <div class="cb-val">${r.count} bkgs</div>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px 0">No data yet</div>';
+
+  const maxC=Math.max(1,...(cancelReasons||[]).map(r=>r.count));
+  document.getElementById('reasonChart').innerHTML=(cancelReasons||[]).length?cancelReasons.map(r=>`
+    <div class="chart-bar">
+      <div class="cb-label">${fmt.reason(r._id)}</div>
+      <div class="cb-track"><div class="cb-fill" style="width:${r.count/maxC*100}%;background:var(--teal)"></div></div>
+      <div class="cb-val">${r.count}</div>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:20px 0">No cancellations yet</div>';
+
+  document.getElementById('overviewBookings').innerHTML=(recentBookings||[]).slice(0,5).map(b=>{
+    const f=b.flightId||{};
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">✈</span>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${f.from?.code||'?'}→${f.to?.code||'?'}</div><div style="font-size:11px;color:var(--text3)">${b.userId?.name||'?'} · ${fmt.date(f.date)}</div></div>
+      <div style="text-align:right"><div style="font-size:13px;color:var(--gold2)">${fmt.currency(b.totalAmount)}</div><span class="badge b-${b.status}">${b.status}</span></div>
+    </div>`;
+  }).join('')||'<div style="color:var(--text3);padding:20px;text-align:center">No bookings</div>';
+
+  document.getElementById('overviewRefunds').innerHTML=(recentCancellations||[]).slice(0,5).map(r=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">↩</span>
+      <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.userId?.name||'?'}</div><div style="font-size:11px;color:var(--text3)">${fmt.reason(r.reason)}</div></div>
+      <div style="text-align:right"><div style="font-size:13px;color:var(--teal)">${fmt.currency(r.refundAmount)}</div><span class="badge b-${r.refundStatus}">${r.refundStatus}</span></div>
+    </div>`).join('')||'<div style="color:var(--text3);padding:20px;text-align:center">No pending refunds</div>';
+}
+
+// ===== FLIGHTS =====
+async function loadFlights(){
+  const search=document.getElementById('flightSearch')?.value||'';
+  const {ok,data}=await API.get('/admin/flights?limit=50'+(search?'&search='+encodeURIComponent(search):''));
+  if(!ok) return;
+  const tbody=document.getElementById('flightsTable');
+  if(!data.flights.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">No flights found</td></tr>';return;}
+  tbody.innerHTML=data.flights.map(f=>`
+    <tr>
+      <td><strong>${f.flightNumber}</strong></td>
+      <td style="color:var(--text2)">${f.airline}</td>
+      <td><span style="color:var(--gold2);font-weight:600">${f.from.code}→${f.to.code}</span><div style="font-size:11px;color:var(--text3)">${f.from.city}→${f.to.city}</div></td>
+      <td>${fmt.date(f.date)}</td>
+      <td style="font-size:12px">${f.departureTime} → ${f.arrivalTime}<div style="color:var(--text3)">${f.duration}</div></td>
+      <td><span class="badge b-${f.class==='Economy'?'economy':f.class==='Business'?'business':'first'}">${f.class}</span></td>
+      <td style="color:var(--gold2);font-weight:500">${fmt.currency(f.price)}</td>
+      <td><span style="color:${f.availableSeats<20?'var(--red2)':f.availableSeats<50?'orange':'var(--green2)'}">${f.availableSeats}</span>/${f.totalSeats}</td>
+      <td><span class="badge ${f.isActive?'b-confirmed':'b-cancelled'}">${f.isActive?'Active':'Inactive'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sky btn-sm" onclick="openEditFlight('${f._id}')">✏</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleFlight('${f._id}','${f.isActive}')">${f.isActive?'Disable':'Enable'}</button>
+          <button class="btn btn-red btn-sm" onclick="deleteFlight('${f._id}','${f.flightNumber}')">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function openAddFlight(){
+  editFlightId=null;
+  document.getElementById('flightModalTitle').textContent='Add New Flight';
+  ['fNumber','fAirline','fFromCity','fFromAirport','fFromCode','fToCity','fToAirport','fToCode','fDepTime','fArrTime','fDuration','fDate','fPrice','fTotalSeats','fAvailSeats','fStops','fBaggage','fAmenities'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fClass').value='Economy';
+  document.getElementById('fRefundable').checked=true;
+  document.getElementById('editFlightId').value='';
+  openModal('addFlightModal');
+}
+
+async function openEditFlight(id){
+  const {ok,data}=await API.get('/flights/'+id); if(!ok) return;
+  const f=data.flight;
+  editFlightId=id;
+  document.getElementById('flightModalTitle').textContent='Edit Flight';
+  document.getElementById('editFlightId').value=id;
+  document.getElementById('fNumber').value=f.flightNumber;
+  document.getElementById('fAirline').value=f.airline;
+  document.getElementById('fFromCity').value=f.from.city;
+  document.getElementById('fFromAirport').value=f.from.airport;
+  document.getElementById('fFromCode').value=f.from.code;
+  document.getElementById('fToCity').value=f.to.city;
+  document.getElementById('fToAirport').value=f.to.airport;
+  document.getElementById('fToCode').value=f.to.code;
+  document.getElementById('fDepTime').value=f.departureTime;
+  document.getElementById('fArrTime').value=f.arrivalTime;
+  document.getElementById('fDuration').value=f.duration;
+  document.getElementById('fDate').value=new Date(f.date).toISOString().split('T')[0];
+  document.getElementById('fClass').value=f.class;
+  document.getElementById('fPrice').value=f.price;
+  document.getElementById('fTotalSeats').value=f.totalSeats;
+  document.getElementById('fAvailSeats').value=f.availableSeats;
+  document.getElementById('fStops').value=f.stops;
+  document.getElementById('fBaggage').value=f.baggage;
+  document.getElementById('fAmenities').value=(f.amenities||[]).join(', ');
+  document.getElementById('fRefundable').checked=f.refundable;
+  openModal('addFlightModal');
+}
+
+async function saveFlight(){
+  const body={
+    flightNumber:document.getElementById('fNumber').value.toUpperCase(),
+    airline:document.getElementById('fAirline').value,
+    from:{city:document.getElementById('fFromCity').value,airport:document.getElementById('fFromAirport').value,code:document.getElementById('fFromCode').value.toUpperCase()},
+    to:{city:document.getElementById('fToCity').value,airport:document.getElementById('fToAirport').value,code:document.getElementById('fToCode').value.toUpperCase()},
+    departureTime:document.getElementById('fDepTime').value,
+    arrivalTime:document.getElementById('fArrTime').value,
+    duration:document.getElementById('fDuration').value,
+    date:document.getElementById('fDate').value,
+    class:document.getElementById('fClass').value,
+    price:parseFloat(document.getElementById('fPrice').value),
+    totalSeats:parseInt(document.getElementById('fTotalSeats').value),
+    availableSeats:parseInt(document.getElementById('fAvailSeats').value),
+    stops:parseInt(document.getElementById('fStops').value)||0,
+    baggage:document.getElementById('fBaggage').value||'20kg',
+    amenities:document.getElementById('fAmenities').value.split(',').map(s=>s.trim()).filter(Boolean),
+    refundable:document.getElementById('fRefundable').checked
+  };
+  const id=document.getElementById('editFlightId').value;
+  const {ok,data}=id?await API.put('/flights/'+id,body):await API.post('/flights',body);
+  if(ok){Toast.show(id?'Flight updated!':'Flight created!','success');closeModal('addFlightModal');loadFlights();}
+  else Toast.show(data.message||'Failed','error');
+}
+
+async function toggleFlight(id,current){
+  const {ok,data}=await API.put('/flights/'+id+'/toggle');
+  if(ok){Toast.show(`Flight ${data.isActive?'enabled':'disabled'}`,'success');loadFlights();}
+  else Toast.show('Failed','error');
+}
+
+async function deleteFlight(id,num){
+  if(!confirm(`Delete flight ${num}? This cannot be undone.`)) return;
+  const {ok}=await API.del('/flights/'+id);
+  if(ok){Toast.show('Flight deleted','success');loadFlights();}
+  else Toast.show('Delete failed','error');
+}
+
+// ===== BOOKINGS =====
+async function loadBookings(){
+  const search=document.getElementById('bSearch')?.value||'';
+  const status=document.getElementById('bStatusFilter')?.value||'';
+  const {ok,data}=await API.get(`/admin/bookings?limit=50${search?'&search='+encodeURIComponent(search):''}${status?'&status='+status:''}`);
+  if(!ok) return;
+  const tbody=document.getElementById('bookingsTable');
+  if(!data.bookings.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)">No bookings</td></tr>';return;}
+  tbody.innerHTML=data.bookings.map(b=>{
+    const f=b.flightId||{};
+    return `<tr>
+      <td><code style="font-size:11px;color:var(--text3)">${b.bookingRef}</code></td>
+      <td><div style="font-size:13px;font-weight:500">${b.userId?.name||'—'}</div><div style="font-size:11px;color:var(--text3)">${b.userId?.email||''}</div></td>
+      <td><div style="font-size:12px;font-weight:500">${f.flightNumber||'—'}</div><div style="font-size:11px;color:var(--text3)">${f.airline||''}</div></td>
+      <td style="color:var(--gold2)">${f.from?.code||'?'}→${f.to?.code||'?'}</td>
+      <td style="font-size:12px">${fmt.date(f.date)}</td>
+      <td><span class="badge b-${b.class==='Economy'?'economy':b.class==='Business'?'business':'first'}">${b.class}</span></td>
+      <td style="color:var(--gold2);font-weight:500">${fmt.currency(b.totalAmount)}</td>
+      <td><span class="badge b-${b.status}">${b.status}</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="changeBookingStatus('${b._id}','${b.status}')">Edit</button>
+          <button class="btn btn-red btn-sm" onclick="deleteBooking('${b._id}')">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function changeBookingStatus(id,current){
+  const ns=prompt(`Change status (current: ${current})\nOptions: confirmed, pending, cancelled, completed`,current);
+  if(!ns||ns===current) return;
+  const {ok}=await API.put('/admin/bookings/'+id,{status:ns});
+  if(ok){Toast.show('Updated','success');loadBookings();}
+}
+
+async function deleteBooking(id){
+  if(!confirm('Delete this booking?')) return;
+  const {ok}=await API.del('/admin/bookings/'+id);
+  if(ok){Toast.show('Deleted','success');loadBookings();}
+}
+
+// ===== REFUNDS =====
+async function loadRefunds(){
+  const status=document.getElementById('rfFilter')?.value||'';
+  const {ok,data}=await API.get('/admin/refunds'+(status?'?status='+status:''));
+  if(!ok) return;
+  const tbody=document.getElementById('refundsTable');
+  if(!data.cancellations.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">No refunds</td></tr>';return;}
+  tbody.innerHTML=data.cancellations.map(r=>{
+    const b=r.bookingId||{},f=b.flightId||{};
+    return `<tr>
+      <td><code style="font-size:11px;color:var(--text3)">${r.cancellationRef}</code></td>
+      <td><div style="font-size:13px">${r.userId?.name||'—'}</div><div style="font-size:11px;color:var(--text3)">${r.userId?.email||''}</div></td>
+      <td style="color:var(--gold2)">${f.from?.code||'?'}→${f.to?.code||'?'}</td>
+      <td style="font-size:12px">${fmt.reason(r.reason)}</td>
+      <td>${fmt.currency(r.originalAmount)}</td>
+      <td style="color:var(--teal);font-weight:500">${fmt.currency(r.refundAmount)}</td>
+      <td><span style="color:${r.refundPercentage===100?'var(--green2)':r.refundPercentage>=75?'var(--gold2)':'var(--red2)'}">${r.refundPercentage}%</span></td>
+      <td><span class="badge b-${r.refundStatus}" style="cursor:pointer" onclick="openRfModal('${r._id}','${r.refundStatus}','${r.userId?.name||''}',${r.refundAmount})">${r.refundStatus}</span></td>
+      <td style="font-size:12px;color:var(--text3)">${fmt.date(r.createdAt)}</td>
+      <td><button class="btn btn-sky btn-sm" onclick="openRfModal('${r._id}','${r.refundStatus}','${r.userId?.name||''}',${r.refundAmount})">Update</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openRfModal(id,status,name,amount){
+  currentRfId=id;
+  document.getElementById('rfNewStatus').value=status;
+  document.getElementById('rfNotes').value='';
+  document.getElementById('rfModalInfo').innerHTML=`<div class="highlight-box"><strong>${name}</strong> — Refund: <span style="color:var(--teal)">${fmt.currency(amount)}</span> · Current: <span class="badge b-${status}">${status}</span></div>`;
+  openModal('rfModal');
+}
+
+async function updateRefund(){
+  const {ok,data}=await API.put('/admin/refunds/'+currentRfId,{refundStatus:document.getElementById('rfNewStatus').value,adminNotes:document.getElementById('rfNotes').value});
+  if(ok){Toast.show('Refund status updated!','success');closeModal('rfModal');loadRefunds();}
+  else Toast.show(data.message||'Failed','error');
+}
+
+// ===== USERS =====
+async function loadUsers(){
+  const search=document.getElementById('uSearch')?.value||'';
+  const role=document.getElementById('uRoleFilter')?.value||'';
+  const {ok,data}=await API.get(`/admin/users?limit=50${search?'&search='+encodeURIComponent(search):''}${role?'&role='+role:''}`);
+  if(!ok) return;
+  const tbody=document.getElementById('usersTable');
+  if(!data.users.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">No users</td></tr>';return;}
+  tbody.innerHTML=data.users.map(u=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold3));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#060610">${u.name.charAt(0)}</div><span style="font-size:13px;font-weight:500">${u.name}</span></div></td>
+      <td style="font-size:13px;color:var(--text2)">${u.email}</td>
+      <td style="font-size:13px;color:var(--text3)">${u.phone||'—'}</td>
+      <td><span class="badge ${u.role==='admin'?'b-economy':'b-confirmed'}">${u.role}</span></td>
+      <td><span style="font-size:12px;color:${u.isActive?'var(--green2)':'var(--red2)'}">● ${u.isActive?'Active':'Inactive'}</span></td>
+      <td style="font-size:12px;color:var(--text3)">${fmt.date(u.createdAt)}</td>
+      <td style="font-size:12px;color:var(--text3)">${u.lastLogin?fmt.date(u.lastLogin):'Never'}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sky btn-sm" onclick="openEditUser('${u._id}','${u.name}','${u.email}','${u.phone||''}','${u.role}')">✏</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleUser('${u._id}')">${u.isActive?'Disable':'Enable'}</button>
+          <button class="btn btn-red btn-sm" onclick="deleteUser('${u._id}','${u.name}')">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function openEditUser(id,name,email,phone,role){
+  document.getElementById('euId').value=id;
+  document.getElementById('euName').value=name;
+  document.getElementById('euEmail').value=email;
+  document.getElementById('euPhone').value=phone;
+  document.getElementById('euRole').value=role;
+  openModal('editUserModal');
+}
+
+async function saveUser(){
+  const id=document.getElementById('euId').value;
+  const {ok,data}=await API.put('/admin/users/'+id,{name:document.getElementById('euName').value,email:document.getElementById('euEmail').value,phone:document.getElementById('euPhone').value,role:document.getElementById('euRole').value});
+  if(ok){Toast.show('User updated!','success');closeModal('editUserModal');loadUsers();}
+  else Toast.show(data.message||'Failed','error');
+}
+
+async function toggleUser(id){
+  const {ok,data}=await API.put('/admin/users/'+id+'/toggle');
+  if(ok){Toast.show(data.isActive?'User activated':'User deactivated','success');loadUsers();}
+}
+
+async function deleteUser(id,name){
+  if(!confirm(`Delete user "${name}"?`)) return;
+  const {ok}=await API.del('/admin/users/'+id);
+  if(ok){Toast.show('User deleted','success');loadUsers();}
+}
+
+async function createAdmin(){
+  const {ok,data}=await API.post('/admin/create-admin',{name:document.getElementById('adName').value,email:document.getElementById('adEmail').value,password:document.getElementById('adPass').value});
+  if(ok){Toast.show('Admin created!','success');closeModal('addAdminModal');loadUsers();}
+  else Toast.show(data.message||'Failed','error');
+}
+
+// ===== SUPPORT =====
+async function loadSupport(){
+  const status=document.getElementById('tkFilter')?.value||'';
+  const {ok,data}=await API.get('/support/admin/all?limit=50'+(status?'&status='+status:''));
+  if(!ok) return;
+  if(data.unread>0){document.getElementById('unreadBadge').style.display='inline';document.getElementById('unreadBadge').textContent=data.unread;}
+  const grid=document.getElementById('supportGrid');
+  if(!data.tickets.length){grid.innerHTML='<div style="grid-column:1/-1"><div class="empty"><div class="empty-icon">💬</div><div class="empty-title">No support tickets</div></div></div>';return;}
+  grid.innerHTML=data.tickets.map(t=>`
+    <div class="card" style="cursor:pointer;${t.flagged?'border-color:rgba(244,63,94,0.4);':''}" onclick="openTicket('${t._id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:14px;font-weight:600">${t.name}</div>
+            ${!t.adminViewed?'<span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block"></span>':''}
+            ${t.flagged?'<span style="font-size:11px;color:var(--red2)">⚑</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--text3)">${t.email}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <span class="badge b-${t.status}">${t.status}</span>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">${fmt.ago(t.updatedAt)}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:6px">${t.subject}</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.5">${t.messages[0]?.content?.substring(0,80)||''}...</div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="badge b-pending" style="font-size:10px">${t.category.replace('_',' ')}</span>
+        <span style="font-size:11px;color:var(--text3)">${t.messages.length} messages</span>
+        ${t.adminReplied?'<span style="font-size:11px;color:var(--green2)">✉ Replied</span>':''}
+      </div>
+    </div>`).join('');
+}
+
+async function openTicket(id){
+  currentTicketId=id;
+  const {ok,data}=await API.get('/support/admin/'+id); if(!ok) return;
+  const t=data.ticket;
+  document.getElementById('tkStatusUpdate').value=t.status;
+  document.getElementById('supportTicketInfo').innerHTML=`
+    <div class="highlight-box">
+      <div style="font-weight:600;font-size:15px">${t.subject}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">${t.ticketRef} · ${t.name} · <a href="mailto:${t.email}" style="color:var(--gold2)">${t.email}</a></div>
+      ${t.bookingRef?`<div style="font-size:12px;color:var(--text3);margin-top:2px">Booking: ${t.bookingRef}</div>`:''}
+    </div>`;
+  document.getElementById('supportMessages').innerHTML=t.messages.map(m=>`
+    <div class="ticket-msg" style="align-items:${m.sender==='user'?'flex-end':'flex-start'}">
+      <div class="tm-sender" style="color:${m.sender==='admin'?'#c4b5fd':m.sender==='ai'?'var(--sky2)':'var(--gold2)'}">${m.sender==='admin'?`👑 ${m.senderName||'Admin'}`:m.sender==='ai'?'🤖 AI':t.name}</div>
+      <div class="tm-content" style="background:${m.sender==='user'?'rgba(201,168,76,0.08)':'var(--surface2)'};padding:10px 14px;border-radius:12px;max-width:85%">${m.content.replace(/\n/g,'<br>')}</div>
+      <div class="tm-time">${fmt.datetime(m.timestamp)}</div>
+    </div>`).join('');
+  document.getElementById('adminReply').value='';
+  document.getElementById('flagTicketBtn').textContent=t.flagged?'⚑ Unflag':'⚑ Flag';
+  openModal('supportModal');
+  loadSupport();
+}
+
+async function sendAdminReply(){
+  const msg=document.getElementById('adminReply').value.trim();
+  if(!msg||!currentTicketId){Toast.show('Please type a reply','error');return;}
+  const sendEmail=document.getElementById('sendEmail').checked;
+  const newStatus=document.getElementById('tkStatusUpdate').value;
+  const {ok,data}=await API.post('/support/admin/'+currentTicketId+'/reply',{message:msg,sendEmail});
+  if(ok){
+    await API.put('/support/admin/'+currentTicketId+'/status',{status:newStatus});
+    Toast.show(data.message,'success');
+    openTicket(currentTicketId);
+  } else Toast.show(data.message||'Failed','error');
+}
+
+async function flagTicket(){
+  const {ok}=await API.put('/admin/chats/noop'); // placeholder
+  const {ok:ok2,data}=await API.post('/support/admin/'+currentTicketId+'/reply',{message:'[Flagged by admin]',sendEmail:false});
+  Toast.show('Chat flag toggled','info');
+}
+
+// Init
+loadOverview();
+</script>
+</body>
+</html>

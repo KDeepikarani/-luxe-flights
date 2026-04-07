@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sign In — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+body{display:flex;min-height:100vh;}
+.auth-left{flex:1;display:flex;align-items:center;justify-content:center;padding:60px 40px;position:relative;overflow:hidden;}
+.auth-left-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 30% 50%,rgba(201,168,76,0.1) 0%,transparent 60%);}
+.auth-right{width:480px;display:flex;flex-direction:column;justify-content:center;padding:60px 48px;background:var(--bg2);border-left:1px solid var(--border);}
+.policy-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;}
+@media(max-width:768px){.auth-left{display:none;}.auth-right{width:100%;padding:40px 28px;}}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+
+<div class="auth-left">
+  <div class="auth-left-bg"></div>
+  <div style="position:relative;z-index:1;max-width:480px;animation:slideUp 0.6s ease">
+    <div style="font-size:52px;margin-bottom:20px">✈</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:42px;font-weight:700;line-height:1.1;margin-bottom:16px">
+      Premium Flights,<br><span style="background:linear-gradient(135deg,var(--gold),var(--gold3));-webkit-background-clip:text;-webkit-text-fill-color:transparent">Effortless Travel</span>
+    </div>
+    <p style="color:var(--text3);font-size:15px;line-height:1.7;margin-bottom:32px">Search hundreds of routes, book in seconds, and manage cancellations with automatic refunds.</p>
+
+    <div class="policy-card">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold2);margin-bottom:12px">Refund Policy</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--green2)">100% — 7+ days</span>
+        <span style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--teal)">90% — 3-7 days</span>
+        <span style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--gold2)">75% — 1-3 days</span>
+        <span style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.2);border-radius:20px;padding:4px 12px;font-size:12px;color:#fed7aa">50% — 24 hours</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="auth-right">
+  <div style="animation:slideUp 0.5s ease">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;margin-bottom:6px">Welcome Back</div>
+    <p style="color:var(--text3);font-size:14px;margin-bottom:36px">Sign in to your Luxe Flights account</p>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" id="email" class="form-input" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%;justify-content:center;margin-top:4px" id="loginBtn">Sign In</button>
+    </form>
+
+    <div style="display:flex;align-items:center;gap:12px;margin:24px 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:12px;color:var(--text3)">New to Luxe Flights?</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <a href="/register" class="btn btn-ghost" style="width:100%;justify-content:center;height:46px;font-size:14px">Create Free Account</a>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(API.isAuth()) location.href = API.isAdmin()?'/admin':'/dashboard';
+
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  if(!email || !password){ Toast.show('Please enter email and password','error'); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Signing in...';
+  try {
+    const {ok, data} = await API.post('/auth/login', { email, password });
+    if(ok && data.success){
+      API.setAuth(data.token, data.user);
+      Toast.show(`Welcome back, ${data.user.name}! ✈`, 'success');
+      setTimeout(() => location.href = data.user.role==='admin' ? '/admin' : '/dashboard', 800);
+    } else {
+      Toast.show(data.message || 'Invalid email or password', 'error');
+      btn.disabled = false; btn.innerHTML = 'Sign In';
+    }
+  } catch(err) {
+    Toast.show('Connection error. Is the server running?', 'error');
+    btn.disabled = false; btn.innerHTML = 'Sign In';
+  }
+});
+</script>
+</body>
+</html>

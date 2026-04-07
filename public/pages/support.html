@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Support — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.chat-container{display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:400px;}
+.chat-messages{flex:1;overflow-y:auto;padding:20px;background:var(--bg3);border-radius:14px 14px 0 0;display:flex;flex-direction:column;gap:14px;}
+.chat-input-row{display:flex;gap:10px;padding:14px;background:var(--surface2);border-radius:0 0 14px 14px;border-top:1px solid var(--border);}
+.chat-input-box{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-family:'Jost',sans-serif;font-size:14px;color:var(--text);outline:none;resize:none;max-height:100px;}
+.chat-input-box:focus{border-color:var(--gold);}
+.chat-send{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--gold2));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:var(--transition);flex-shrink:0;}
+.chat-send:hover{transform:scale(1.08);}
+.chat-send:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.typing{display:flex;gap:4px;align-items:center;padding:2px 0;}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--text3);animation:tdot 1.2s infinite;}
+.tdot:nth-child(2){animation-delay:0.2s}.tdot:nth-child(3){animation-delay:0.4s}
+@keyframes tdot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+.quick-q{display:inline-flex;padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:50px;font-size:12px;cursor:pointer;color:var(--text2);transition:var(--transition);}
+.quick-q:hover{border-color:var(--gold);color:var(--gold2);}
+.ticket-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px;transition:var(--transition);cursor:pointer;}
+.ticket-card:hover{border-color:var(--border2);}
+.msg-admin{font-size:11px;color:#c4b5fd;margin-top:3px;}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div><div class="page-title">Support Center</div><div class="page-sub">AI assistant + human support tickets</div></div>
+    </div>
+    <div class="page-body fade-in">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('ai',this)">🤖 AI Assistant</div>
+        <div class="tab" onclick="switchTab('ticket',this)">📝 Submit Ticket</div>
+        <div class="tab" onclick="switchTab('mytickets',this)">📋 My Tickets</div>
+      </div>
+
+      <!-- AI Chat -->
+      <div id="tab-ai">
+        <div class="g g-2" style="align-items:start;gap:24px">
+          <div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:12px;font-weight:500">Quick Questions:</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <div class="quick-q" onclick="sendAI('What is your refund policy?')">Refund policy</div>
+              <div class="quick-q" onclick="sendAI('How do I cancel my booking?')">Cancel booking</div>
+              <div class="quick-q" onclick="sendAI('How long does a refund take?')">Refund timeline</div>
+              <div class="quick-q" onclick="sendAI('What baggage is allowed?')">Baggage rules</div>
+              <div class="quick-q" onclick="sendAI('How do I check in online?')">Online check-in</div>
+            </div>
+            <div class="chat-container">
+              <div class="chat-messages" id="chatMessages">
+                <div class="msg-row">
+                  <div class="msg-av ai">🤖</div>
+                  <div>
+                    <div class="bubble ai">Hi! I'm Luxe Flights AI assistant. I can help with booking queries, refund policies, flight information, and more. How can I help you today?<br><br><em style="color:var(--text3);font-size:12px">Tip: If you need human assistance, share your email and we'll follow up!</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="chat-input-row">
+                <textarea class="chat-input-box" id="aiInput" placeholder="Ask anything..." rows="1" onkeydown="handleKey(event)" oninput="autoH(this)"></textarea>
+                <button class="chat-send" id="aiSend" onclick="sendAI()">➤</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <h3 style="font-size:16px;margin-bottom:16px">Need Human Support?</h3>
+              <p style="color:var(--text3);font-size:14px;line-height:1.7;margin-bottom:16px">Our support team typically responds within <strong style="color:var(--gold2)">2–4 hours</strong>. Submit a ticket and we'll reply to your email directly.</p>
+              <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="switchTab('ticket',document.querySelectorAll('.tab')[1])">Submit Support Ticket</button>
+            </div>
+            <div class="card" style="margin-top:16px">
+              <h3 style="font-size:15px;margin-bottom:14px">Contact Info</h3>
+              <div style="font-size:13px;color:var(--text2);line-height:2">
+                📧 support@luxeflights.com<br>
+                📞 1800-LUXE-FLY<br>
+                ⏰ 24/7 AI · Human 9am–9pm IST
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Ticket -->
+      <div id="tab-ticket" style="display:none">
+        <div style="max-width:640px">
+          <div class="card">
+            <h3 style="font-size:18px;margin-bottom:6px">Submit Support Ticket</h3>
+            <p style="color:var(--text3);font-size:13px;margin-bottom:24px">Our team will reply to your email within 2–4 hours.</p>
+            <form id="ticketForm">
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Your Name *</label><input type="text" id="tName" class="form-input" placeholder="Full name" required></div>
+                <div class="form-group"><label class="form-label">Email Address *</label><input type="email" id="tEmail" class="form-input" placeholder="your@email.com" required></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="tPhone" class="form-input" placeholder="+91 9876543210"></div>
+                <div class="form-group"><label class="form-label">Booking Ref (if any)</label><input type="text" id="tRef" class="form-input" placeholder="LX..."></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <select id="tCategory" class="form-input">
+                  <option value="booking_issue">Booking Issue</option>
+                  <option value="refund_query">Refund Query</option>
+                  <option value="flight_info">Flight Information</option>
+                  <option value="cancellation">Cancellation Help</option>
+                  <option value="payment">Payment Problem</option>
+                  <option value="baggage">Baggage Query</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">Subject *</label><input type="text" id="tSubject" class="form-input" placeholder="Brief description of your issue" required></div>
+              <div class="form-group"><label class="form-label">Message *</label><textarea id="tMessage" class="form-input" rows="5" placeholder="Please describe your issue in detail..." required></textarea></div>
+              <button type="submit" class="btn btn-gold" id="ticketBtn">📧 Submit Ticket</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Tickets -->
+      <div id="tab-mytickets" style="display:none">
+        <div id="myTicketsList"><div class="plane-loader" style="padding:40px"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Ticket Modal -->
+<div class="modal-overlay" id="ticketModal">
+  <div class="modal" style="max-width:660px">
+    <div class="modal-head"><div class="modal-title">Support Ticket</div><button class="modal-close" onclick="closeModal('ticketModal')">✕</button></div>
+    <div class="modal-body">
+      <div id="ticketDetail"></div>
+      <div style="margin-top:16px">
+        <label class="form-label">Reply to this ticket</label>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <input type="text" id="replyMsg" class="form-input" placeholder="Type your message...">
+          <button class="btn btn-gold btn-sm" onclick="sendTicketReply()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAuth()||API.isAdmin()) location.href=API.isAdmin()?'/admin':'/login';
+buildSidebar('Support');
+
+const user=API.user();
+let aiHistory=[], isTyping=false, currentTicketId=null;
+
+// Pre-fill form
+document.getElementById('tName').value=user.name||'';
+document.getElementById('tEmail').value=user.email||'';
+document.getElementById('tPhone').value=user.phone||'';
+
+function switchTab(name,el){
+  ['ai','ticket','mytickets'].forEach(t=>document.getElementById('tab-'+t).style.display='none');
+  document.getElementById('tab-'+name).style.display='block';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(name==='mytickets') loadMyTickets();
+}
+
+// AI Chat
+async function sendAI(preset){
+  const input=document.getElementById('aiInput');
+  const msg=preset||input.value.trim();
+  if(!msg||isTyping) return;
+  input.value=''; input.style.height='auto';
+
+  const msgs=document.getElementById('chatMessages');
+  msgs.innerHTML+=`<div class="msg-row user"><div class="msg-av user">${user.name.charAt(0)}</div><div><div class="bubble user">${msg}</div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+
+  isTyping=true;
+  document.getElementById('aiSend').disabled=true;
+  msgs.innerHTML+=`<div id="typingRow" class="msg-row"><div class="msg-av ai">🤖</div><div class="bubble ai"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+
+  aiHistory.push({role:'user',content:msg});
+  const {ok,data}=await API.post('/support/ai-chat',{message:msg,history:aiHistory.slice(-8)});
+  document.getElementById('typingRow')?.remove();
+  isTyping=false;
+  document.getElementById('aiSend').disabled=false;
+
+  const reply=ok?data.message:"I'm having trouble connecting right now. Please try submitting a support ticket and we'll email you back.";
+  aiHistory.push({role:'assistant',content:reply});
+  msgs.innerHTML+=`<div class="msg-row"><div class="msg-av ai">🤖</div><div><div class="bubble ai">${reply.replace(/\n/g,'<br>')}</div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAI();}}
+function autoH(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+// Submit Ticket
+document.getElementById('ticketForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('ticketBtn');
+  btn.disabled=true; btn.innerHTML='<span class="loader"></span> Submitting...';
+  const {ok,data}=await API.post('/support',{
+    name:document.getElementById('tName').value,
+    email:document.getElementById('tEmail').value,
+    phone:document.getElementById('tPhone').value,
+    bookingRef:document.getElementById('tRef').value,
+    category:document.getElementById('tCategory').value,
+    subject:document.getElementById('tSubject').value,
+    message:document.getElementById('tMessage').value
+  });
+  btn.disabled=false; btn.innerHTML='📧 Submit Ticket';
+  if(ok){
+    Toast.show(`Ticket submitted! Ref: ${data.ticketRef} — Check your email for confirmation.`,'success',8000);
+    document.getElementById('ticketForm').reset();
+    document.getElementById('tName').value=user.name;
+    document.getElementById('tEmail').value=user.email;
+    switchTab('mytickets',document.querySelectorAll('.tab')[2]);
+  } else {
+    Toast.show(data.message||'Failed to submit ticket','error');
+  }
+});
+
+async function loadMyTickets(){
+  const {ok,data}=await API.get('/support/my');
+  const el=document.getElementById('myTicketsList');
+  if(!ok||!data.tickets?.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No tickets yet</div><div class="empty-text">Submit a ticket and we'll reply to your email</div></div>`;
+    return;
+  }
+  el.innerHTML=data.tickets.map(t=>`
+    <div class="ticket-card" onclick="viewTicket('${t._id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:4px">${t.subject}</div>
+          <div style="font-size:12px;color:var(--text3)">${t.ticketRef} · ${t.category.replace('_',' ')} · ${fmt.ago(t.updatedAt)}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          ${t.adminReplied?'<span style="font-size:11px;color:var(--green2)">✉ Reply received</span>':''}
+          <span class="badge b-${t.status}">${t.status}</span>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:13px;color:var(--text3)">${t.messages[0]?.content?.substring(0,100)||''}...</div>
+    </div>
+  `).join('');
+}
+
+async function viewTicket(id){
+  currentTicketId=id;
+  const {ok,data}=await API.get('/support/my');
+  const ticket=data.tickets?.find(t=>t._id===id);
+  if(!ticket) return;
+  document.getElementById('ticketDetail').innerHTML=`
+    <div class="highlight-box" style="margin-bottom:16px">
+      <div style="font-weight:600">${ticket.subject}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">${ticket.ticketRef} · <span class="badge b-${ticket.status}">${ticket.status}</span></div>
+    </div>
+    <div class="chat-wrap">
+      ${ticket.messages.map(m=>`
+        <div class="msg-row ${m.sender==='user'?'user':''}">
+          <div class="msg-av ${m.sender}">${m.sender==='user'?user.name.charAt(0):m.sender==='admin'?'👑':'🤖'}</div>
+          <div>
+            <div class="bubble ${m.sender==='user'?'user':m.sender==='admin'?'admin':'ai'}">${m.content.replace(/\n/g,'<br>')}</div>
+            ${m.sender==='admin'?`<div class="msg-admin">— ${m.senderName||'Support Team'}</div>`:''}
+            <div class="msg-time" style="text-align:${m.sender==='user'?'right':'left'}">${fmt.datetime(m.timestamp)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  openModal('ticketModal');
+}
+
+async function sendTicketReply(){
+  const msg=document.getElementById('replyMsg').value.trim();
+  if(!msg||!currentTicketId) return;
+  const {ok}=await API.post(`/support/${currentTicketId}/message`,{message:msg});
+  if(ok){document.getElementById('replyMsg').value='';Toast.show('Reply sent','success');viewTicket(currentTicketId);}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Refunds — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.refund-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:16px;}
+.refund-head{background:linear-gradient(135deg,var(--surface2),var(--bg3));padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;}
+.refund-body{padding:20px 24px;}
+.timeline-line{position:relative;padding-left:28px;margin-top:16px;}
+.timeline-line::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border);}
+.tl-item{position:relative;margin-bottom:14px;}
+.tl-dot{position:absolute;left:-28px;top:2px;width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:var(--bg2);}
+.tl-dot.done{background:var(--gold);border-color:var(--gold);}
+.tl-dot.now{background:transparent;border-color:var(--sky);box-shadow:0 0 0 4px rgba(56,189,248,0.15);}
+.tl-dot.bad{background:var(--red);border-color:var(--red);}
+.tl-msg{font-size:13px;}
+.tl-time{font-size:11px;color:var(--text3);margin-top:2px;}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div><div class="page-title">Refund Tracker</div><div class="page-sub">Real-time status of all your refund requests</div></div>
+    </div>
+    <div class="page-body fade-in">
+      <div class="g g-4 stagger" style="margin-bottom:28px" id="rfStats"></div>
+      <div id="rfList"><div class="plane-loader" style="padding:60px"></div></div>
+    </div>
+  </div>
+</div>
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAuth()||API.isAdmin()) location.href=API.isAdmin()?'/admin':'/login';
+buildSidebar('Refunds');
+
+const statusOrder=['pending','processing','processed','completed'];
+
+function stepState(current, step){
+  if(current==='rejected') return step==='rejected'?'bad':'';
+  const ci=statusOrder.indexOf(current), si=statusOrder.indexOf(step);
+  if(ci>si) return 'done'; if(ci===si) return 'now'; return '';
+}
+
+async function load(){
+  const {ok,data}=await API.get('/bookings/my/refunds');
+  if(!ok) return;
+  const rfs=data.cancellations||[];
+
+  const total=rfs.length, totalAmt=rfs.reduce((s,r)=>s+r.refundAmount,0);
+  const pending=rfs.filter(r=>r.refundStatus==='pending').length;
+  const done=rfs.filter(r=>r.refundStatus==='completed').length;
+
+  document.getElementById('rfStats').innerHTML=`
+    <div class="stat-card stat-gold"><div class="stat-icon">↩</div><div class="stat-val">${total}</div><div class="stat-label">Total Requests</div></div>
+    <div class="stat-card stat-sky"><div class="stat-icon">⏳</div><div class="stat-val">${pending}</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card stat-green"><div class="stat-icon">✓</div><div class="stat-val">${done}</div><div class="stat-label">Completed</div></div>
+    <div class="stat-card"><div class="stat-icon">₹</div><div class="stat-val" style="color:var(--teal)">${fmt.currency(totalAmt)}</div><div class="stat-label">Total Refunded</div></div>`;
+
+  const el=document.getElementById('rfList');
+  if(!rfs.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">↩</div><div class="empty-title">No refund requests</div><div class="empty-text">Cancel a booking to start tracking your refund here</div><a href="/my-bookings" class="btn btn-ghost" style="margin-top:16px">View Bookings</a></div>`;
+    return;
+  }
+
+  el.innerHTML=rfs.map(r=>{
+    const b=r.bookingId||{}, f=b.flightId||{};
+    const steps=['pending','processing','processed','completed'];
+    const stepLabels=['Submitted','Processing','Processed','Completed'];
+    return `<div class="refund-card">
+      <div class="refund-head">
+        <div>
+          <div style="font-size:11px;letter-spacing:1px;color:var(--text3);margin-bottom:4px">REF: ${r.cancellationRef}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700">${f.from?.city||'?'} → ${f.to?.city||'?'}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">
+            ${fmt.reason(r.reason)} · Cancelled ${fmt.date(r.createdAt)}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">REFUND AMOUNT</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--teal)">${fmt.currency(r.refundAmount)}</div>
+          <div style="font-size:11px;color:var(--text3)">${r.refundPercentage}% of ${fmt.currency(r.originalAmount)}</div>
+          <span class="badge b-${r.refundStatus}" style="margin-top:8px">${r.refundStatus}</span>
+        </div>
+      </div>
+      <div class="refund-body">
+        ${r.refundAmount===0?`<div class="alert-box alert-danger">No refund applicable — ${r.refundPolicy}</div>`:`
+        <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:14px">Refund Progress</div>
+        <div class="progress-track">
+          ${steps.map((s,i)=>{
+            const state=stepState(r.refundStatus,s);
+            return `<div class="prog-step ${state}">
+              <div class="prog-dot">${state==='done'?'✓':i+1}</div>
+              <div class="prog-label">${stepLabels[i]}</div>
+            </div>`;
+          }).join('')}
+        </div>`}
+        ${r.expectedDate&&r.refundStatus!=='completed'&&r.refundStatus!=='rejected'?`
+        <div class="alert-box alert-info" style="margin-bottom:14px">⏰ Expected by ${fmt.date(r.expectedDate)} · Refund to original payment method</div>`:''}
+        ${r.timeline&&r.timeline.length?`
+        <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Activity Timeline</div>
+        <div class="timeline-line">
+          ${r.timeline.map((t,i)=>`<div class="tl-item">
+            <div class="tl-dot ${i===r.timeline.length-1?'now':'done'}"></div>
+            <div class="tl-msg">${t.message}</div>
+            <div class="tl-time">${fmt.datetime(t.timestamp)}</div>
+          </div>`).join('')}
+        </div>`:''}
+        ${r.adminNotes?`<div style="margin-top:14px;padding:12px;background:var(--surface2);border-radius:10px;font-size:13px"><span style="color:var(--text3)">Admin Note: </span>${r.adminNotes}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+load();
+</script>
+</body>
+</html>

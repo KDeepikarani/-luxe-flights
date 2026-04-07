@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Search Flights — Luxe Flights</title>
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+.seat-bar{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.seat-fill{height:100%;border-radius:3px;transition:width 0.5s;}
+.amenity-tag{background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.2);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--sky2);}
+.flight-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;}
+.pay-method{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:var(--transition);margin-bottom:10px;}
+.pay-method:hover{border-color:var(--gold);background:rgba(201,168,76,0.05);}
+.pay-method.selected{border-color:var(--gold);background:rgba(201,168,76,0.1);}
+.pay-icon{font-size:22px;width:32px;text-align:center;}
+.pay-label{font-size:14px;font-weight:500;}
+.pay-sub{font-size:12px;color:var(--text3);}
+.success-ring{width:90px;height:90px;border-radius:50%;background:rgba(16,185,129,0.1);border:3px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 22px;animation:popIn 0.6s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+.bc{background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(6,6,16,0.6));border:1px solid rgba(201,168,76,0.3);border-radius:16px;padding:22px;position:relative;overflow:hidden;}
+.bc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold3));}
+.bc-r{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed rgba(37,37,64,0.8);}
+.bc-r:last-child{border-bottom:none;}
+.bc-l{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.bc-v{font-size:14px;font-weight:600;}
+.proc-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+.proc-ring{width:70px;height:70px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;}
+</style>
+</head>
+<body>
+<div id="particles" class="bg-particles"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sb-overlay" onclick="toggleSidebar()"></div>
+  <div class="main">
+    <div class="page-header" id="page-header">
+      <div><div class="page-title">Search Flights</div><div class="page-sub">All flights updated live from admin panel</div></div>
+    </div>
+    <div class="page-body fade-in">
+
+      <div class="search-hero">
+        <h2 style="font-size:22px;margin-bottom:6px">Where would you like to fly?</h2>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:20px">Routes are added and managed by admin — always up to date</p>
+        <div class="search-grid">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">From</label>
+            <select id="fromCode" class="form-input"><option value="">Any Origin</option></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">To</label>
+            <select id="toCode" class="form-input"><option value="">Any Destination</option></select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Date</label>
+            <input type="date" id="searchDate" class="form-input">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Class</label>
+            <select id="searchClass" class="form-input">
+              <option value="">All Classes</option>
+              <option value="Economy">Economy</option>
+              <option value="Business">Business</option>
+              <option value="First Class">First Class</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="visibility:hidden">Go</label>
+            <button class="btn btn-gold" onclick="doSearch()" style="width:100%;justify-content:center;height:46px" id="searchBtn">🔍 Search</button>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase">Popular:</span>
+          <div id="routeChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+
+      <div id="resultsBar" style="display:none;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="font-size:14px;color:var(--text2)" id="resultsCount"></div>
+        <select id="sortBy" class="form-input" style="width:160px" onchange="sortResults()">
+          <option value="price">Cheapest First</option>
+          <option value="departure">Earliest First</option>
+        </select>
+      </div>
+
+      <div class="flight-grid" id="flightResults">
+        <div style="grid-column:1/-1" class="plane-loader"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 1: Passenger Details -->
+<div class="modal-overlay" id="passengerModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Passenger Details</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Step 1 of 2</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('passengerModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pFlightInfo" style="margin-bottom:20px"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Full Name (as on ID) *</label><input type="text" id="p0name" class="form-input" placeholder="JOHN DOE"></div>
+        <div class="form-group"><label class="form-label">Age *</label><input type="number" id="p0age" class="form-input" placeholder="25" min="1" max="120"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Gender *</label><select id="p0gender" class="form-input"><option>Male</option><option>Female</option><option>Other</option></select></div>
+        <div class="form-group"><label class="form-label">Passport / ID No.</label><input type="text" id="p0passport" class="form-input" placeholder="Optional"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Contact Email *</label><input type="email" id="bEmail" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Contact Phone *</label><input type="tel" id="bPhone" class="form-input"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Special Requests</label><textarea id="bSpecial" class="form-input" rows="2" placeholder="Wheelchair, meal preference, etc."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('passengerModal')">Cancel</button>
+      <button class="btn btn-gold" onclick="goToPayment()">Continue to Payment →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 2: Payment -->
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">🔒 Secure Payment</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Step 2 of 2 — SSL Encrypted</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('paymentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="paySummary" style="margin-bottom:20px"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px">Payment Method</div>
+      <div class="pay-method selected" onclick="selPay(this,'card')" data-m="card"><div class="pay-icon">💳</div><div><div class="pay-label">Credit / Debit Card</div><div class="pay-sub">Visa, Mastercard, RuPay</div></div></div>
+      <div class="pay-method" onclick="selPay(this,'upi')" data-m="upi"><div class="pay-icon">📱</div><div><div class="pay-label">UPI</div><div class="pay-sub">GPay, PhonePe, Paytm</div></div></div>
+      <div class="pay-method" onclick="selPay(this,'netbanking')" data-m="netbanking"><div class="pay-icon">🏦</div><div><div class="pay-label">Net Banking</div><div class="pay-sub">All major Indian banks</div></div></div>
+      <div class="pay-method" onclick="selPay(this,'wallet')" data-m="wallet"><div class="pay-icon">👜</div><div><div class="pay-label">Digital Wallet</div><div class="pay-sub">Paytm, Amazon Pay</div></div></div>
+
+      <div id="cardDetails" style="margin-top:16px">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Card Number</label><input type="text" id="cNum" class="form-input" placeholder="4111 1111 1111 1111" maxlength="19" oninput="fmtCard(this)"></div>
+          <div class="form-group"><label class="form-label">Name on Card</label><input type="text" id="cName" class="form-input" placeholder="JOHN DOE"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Expiry (MM/YY)</label><input type="text" id="cExp" class="form-input" placeholder="12/27" maxlength="5"></div>
+          <div class="form-group"><label class="form-label">CVV</label><input type="password" id="cCvv" class="form-input" placeholder="•••" maxlength="3"></div>
+        </div>
+      </div>
+
+      <div id="upiDetails" style="display:none;margin-top:16px">
+        <div class="form-group"><label class="form-label">UPI ID</label><input type="text" id="upiId" class="form-input" placeholder="yourname@upi"></div>
+      </div>
+
+      <div class="alert-box alert-info" style="margin-top:14px;font-size:12px">🔒 Demo mode — no real transaction. Click Pay Now to simulate a successful payment.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="backToPax()">← Back</button>
+      <button class="btn btn-gold" id="payNowBtn" onclick="processPayment()" style="min-width:180px;justify-content:center;font-size:15px">Pay Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL 3: Booking Success -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-body" style="padding:36px 32px;text-align:center">
+      <div class="success-ring">✓</div>
+      <h2 style="font-size:28px;margin-bottom:8px">Payment Successful!</h2>
+      <p style="color:var(--text3);font-size:14px;line-height:1.7;margin-bottom:24px">Your flight is confirmed. You can cancel anytime from My Bookings and get a refund based on our policy.</p>
+      <div class="bc" style="text-align:left;margin-bottom:24px" id="boardingCard"></div>
+      <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:12px;padding:14px;margin-bottom:20px;font-size:13px;color:var(--green2)">
+        ✅ Booking confirmed &nbsp;·&nbsp; ✅ Seats reserved &nbsp;·&nbsp; ✅ Email sent
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-gold" onclick="location.href='/my-bookings'">✈ View My Bookings</button>
+        <button class="btn btn-ghost" onclick="closeModal('successModal');location.reload()">Search More Flights</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-root" class="toasts"></div>
+<script src="/js/app.js"></script>
+<script>
+if(!requireAuth() || API.isAdmin()) { location.href = API.isAdmin() ? '/admin' : '/login'; }
+buildSidebar('Search Flights');
+document.getElementById('searchDate').value = new Date().toISOString().split('T')[0];
+
+const user = API.user();
+let allFlights = [], selectedFlight = null, selectedPayMethod = 'card';
+
+// ─── Load all flights dynamically from DB ───
+async function initFlights() {
+  const {ok, data} = await API.get('/flights');
+  if(!ok) {
+    document.getElementById('flightResults').innerHTML = '<div style="grid-column:1/-1"><div class="empty"><div class="empty-icon">⚠</div><div class="empty-title">Could not load flights</div><div class="empty-text">Please refresh the page</div></div></div>';
+    return;
+  }
+  allFlights = data.flights || [];
+
+  // Build airport dropdowns from real DB data
+  const fromSel = document.getElementById('fromCode');
+  const toSel = document.getElementById('toCode');
+  const fromSet = {}, toSet = {};
+  allFlights.forEach(f => {
+    fromSet[f.from.code] = f.from.city;
+    toSet[f.to.code] = f.to.city;
+  });
+  // Merge both sets into from dropdown
+  const allCodes = {};
+  Object.assign(allCodes, fromSet, toSet);
+  Object.entries(allCodes).forEach(([code, city]) => {
+    fromSel.innerHTML += `<option value="${code}">${city} (${code})</option>`;
+  });
+  Object.entries(allCodes).forEach(([code, city]) => {
+    toSel.innerHTML += `<option value="${code}">${city} (${code})</option>`;
+  });
+
+  // Quick-route chips
+  const seen = new Set();
+  const chips = allFlights.filter(f => {
+    const key = `${f.from.code}-${f.to.code}`;
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  }).slice(0, 5);
+
+  document.getElementById('routeChips').innerHTML = chips.map(f =>
+    `<span style="cursor:pointer;padding:5px 14px;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:20px;font-size:12px;color:var(--gold2);transition:var(--transition)"
+      onmouseover="this.style.background='rgba(201,168,76,0.16)'" onmouseout="this.style.background='rgba(201,168,76,0.07)'"
+      onclick="quickRoute('${f.from.code}','${f.to.code}')">${f.from.code} → ${f.to.code}</span>`
+  ).join('');
+
+  renderFlights(allFlights);
+}
+
+function quickRoute(from, to) {
+  document.getElementById('fromCode').value = from;
+  document.getElementById('toCode').value = to;
+  doSearch();
+}
+
+// ─── Search ───
+async function doSearch() {
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span>';
+  const params = new URLSearchParams();
+  const from = document.getElementById('fromCode').value;
+  const to = document.getElementById('toCode').value;
+  const date = document.getElementById('searchDate').value;
+  const cls = document.getElementById('searchClass').value;
+  if(from) params.set('from', from);
+  if(to) params.set('to', to);
+  if(date) params.set('date', date);
+  if(cls) params.set('class', cls);
+
+  const {ok, data} = await API.get('/flights/search?' + params);
+  btn.disabled = false; btn.innerHTML = '🔍 Search';
+  if(ok) {
+    allFlights = data.flights || [];
+    document.getElementById('resultsBar').style.display = 'flex';
+    document.getElementById('resultsCount').textContent = `${allFlights.length} flight${allFlights.length !== 1 ? 's' : ''} found`;
+    renderFlights(allFlights);
+  } else Toast.show('Search failed','error');
+}
+
+function sortResults() {
+  const by = document.getElementById('sortBy').value;
+  const sorted = [...allFlights].sort((a,b) => by === 'price' ? a.price-b.price : a.departureTime.localeCompare(b.departureTime));
+  renderFlights(sorted);
+}
+
+// ─── Render flight cards ───
+function renderFlights(flights) {
+  const el = document.getElementById('flightResults');
+  if(!flights.length) {
+    el.innerHTML = `<div style="grid-column:1/-1"><div class="empty">
+      <div class="empty-icon">✈</div><div class="empty-title">No flights found</div>
+      <div class="empty-text">Try different dates, routes, or class. New flights are added by admin regularly.</div>
+      <button class="btn btn-ghost" style="margin-top:16px" onclick="document.getElementById('fromCode').value='';document.getElementById('toCode').value='';initFlights()">Show All Flights</button>
+    </div></div>`;
+    return;
+  }
+  const classMap = { Economy:'b-economy', Business:'b-business', 'First Class':'b-first' };
+  el.innerHTML = flights.map(f => {
+    const sp = Math.round((f.availableSeats / f.totalSeats) * 100);
+    const sc = sp > 50 ? 'var(--green)' : sp > 20 ? 'var(--gold)' : 'var(--red)';
+    return `<div class="flight-card card-shine">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div><div style="font-size:13px;font-weight:600;color:var(--gold2)">${f.airline}</div><div style="font-size:11px;color:var(--text3)">${f.flightNumber}</div></div>
+        <span class="badge ${classMap[f.class]||'b-economy'}">${f.class}</span>
+      </div>
+      <div class="flight-route">
+        <div class="route-city"><div class="route-code">${f.from.code}</div><div class="route-name">${f.from.city}</div></div>
+        <div class="route-line"><div class="route-line-bar"></div><div class="route-duration">${f.duration} · ${fmt.stops(f.stops)}</div></div>
+        <div class="route-city"><div class="route-code">${f.to.code}</div><div class="route-name">${f.to.city}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0">
+        <div style="display:flex;gap:20px">
+          <div><div style="font-size:20px;font-weight:700">${f.departureTime}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Departs</div></div>
+          <div style="color:var(--text3);font-size:18px;padding-top:4px">→</div>
+          <div><div style="font-size:20px;font-weight:700">${f.arrivalTime}</div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Arrives</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--gold2)">${fmt.currency(f.price)}</div>
+          <div style="font-size:11px;color:var(--text3)">per person + 18% tax</div>
+        </div>
+      </div>
+      <div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${(f.amenities||[]).slice(0,3).map(a=>`<span class="amenity-tag">${a}</span>`).join('')}</div>
+          <span style="font-size:12px;color:var(--text3)">🧳 ${f.baggage||'20kg'}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="seat-bar"><div class="seat-fill" style="width:${sp}%;background:${sc}"></div></div>
+          <span style="font-size:11px;color:${sc};white-space:nowrap;font-weight:500">${f.availableSeats} seats</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+        <span style="font-size:12px;color:var(--text3)">📅 ${fmt.date(f.date)}</span>
+        ${f.refundable ? '<span style="font-size:11px;color:var(--green2)">✓ Refundable</span>' : '<span style="font-size:11px;color:var(--red2)">✕ Non-refundable</span>'}
+        <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openBook('${f._id}')">Book Now ✈</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── STEP 1: Open booking ───
+async function openBook(fid) {
+  const {ok, data} = await API.get('/flights/' + fid);
+  if(!ok) { Toast.show('Flight not found','error'); return; }
+  selectedFlight = data.flight;
+  const f = selectedFlight;
+
+  document.getElementById('pFlightInfo').innerHTML = `
+    <div class="highlight-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700">${f.from.city} → ${f.to.city}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">${f.airline} ${f.flightNumber} · ${fmt.date(f.date)} · ${f.departureTime} – ${f.arrivalTime} · ${f.class}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold2)">${fmt.currency(f.price)}</div>
+          <div style="font-size:11px;color:var(--text3)">Total: ${fmt.currency(Math.round(f.price*1.18))} (incl. tax)</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('p0name').value = user.name || '';
+  document.getElementById('bEmail').value = user.email || '';
+  document.getElementById('bPhone').value = user.phone || '';
+  document.getElementById('p0age').value = '';
+  openModal('passengerModal');
+}
+
+// ─── STEP 2: Go to payment ───
+function goToPayment() {
+  const name = document.getElementById('p0name').value.trim();
+  const age = document.getElementById('p0age').value;
+  const email = document.getElementById('bEmail').value.trim();
+  const phone = document.getElementById('bPhone').value.trim();
+  if(!name) { Toast.show('Enter passenger name','error'); return; }
+  if(!age || parseInt(age) < 1) { Toast.show('Enter valid age','error'); return; }
+  if(!email) { Toast.show('Enter contact email','error'); return; }
+  if(!phone) { Toast.show('Enter contact phone','error'); return; }
+
+  const f = selectedFlight;
+  const base = f.price, tax = Math.round(base*0.18), total = base+tax;
+
+  document.getElementById('paySummary').innerHTML = `
+    <div class="bc" style="margin-bottom:0">
+      <div class="bc-r">
+        <div><div class="bc-l">Flight</div><div class="bc-v">${f.flightNumber} · ${f.airline}</div></div>
+        <div style="text-align:right"><div class="bc-l">Route</div><div class="bc-v">${f.from.code} → ${f.to.code}</div></div>
+      </div>
+      <div class="bc-r">
+        <div><div class="bc-l">Date & Time</div><div class="bc-v">${fmt.date(f.date)} · ${f.departureTime}</div></div>
+        <div style="text-align:right"><div class="bc-l">Class</div><div class="bc-v">${f.class}</div></div>
+      </div>
+      <div class="bc-r">
+        <div><div class="bc-l">Passenger</div><div class="bc-v">${name}</div></div>
+        <div style="text-align:right"><div class="bc-l">Baggage</div><div class="bc-v">${f.baggage||'20kg'}</div></div>
+      </div>
+      <div class="bc-r" style="border-bottom:none">
+        <div><div class="bc-l">Base + Tax (18%)</div><div style="font-size:13px;color:var(--text3)">${fmt.currency(base)} + ${fmt.currency(tax)}</div></div>
+        <div style="text-align:right"><div class="bc-l">Total</div><div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--gold2);font-weight:700">${fmt.currency(total)}</div></div>
+      </div>
+    </div>`;
+
+  document.getElementById('payNowBtn').textContent = `Pay ${fmt.currency(total)}`;
+  closeModal('passengerModal');
+  openModal('paymentModal');
+}
+
+function backToPax() { closeModal('paymentModal'); openModal('passengerModal'); }
+
+function selPay(el, method) {
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPayMethod = method;
+  document.getElementById('cardDetails').style.display = method === 'card' ? 'block' : 'none';
+  document.getElementById('upiDetails').style.display = method === 'upi' ? 'block' : 'none';
+}
+
+function fmtCard(el) {
+  let v = el.value.replace(/\D/g,'').substring(0,16);
+  el.value = v.replace(/(.{4})/g,'$1 ').trim();
+}
+
+// ─── STEP 3: Process payment → confirm booking ───
+async function processPayment() {
+  const btn = document.getElementById('payNowBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="loader"></span> Processing payment...';
+
+  // Simulate payment gateway delay
+  await new Promise(r => setTimeout(r, 2000));
+
+  const {ok, data} = await API.post('/bookings', {
+    flightId: selectedFlight._id,
+    class: selectedFlight.class,
+    passengers: [{
+      name: document.getElementById('p0name').value.trim(),
+      age: parseInt(document.getElementById('p0age').value),
+      gender: document.getElementById('p0gender').value,
+      passportNumber: document.getElementById('p0passport').value || ''
+    }],
+    contactEmail: document.getElementById('bEmail').value.trim(),
+    contactPhone: document.getElementById('bPhone').value.trim(),
+    specialRequests: document.getElementById('bSpecial').value,
+    paymentMethod: selectedPayMethod
+  });
+
+  btn.disabled = false;
+  btn.textContent = `Pay ${fmt.currency(Math.round(selectedFlight.price*1.18))}`;
+
+  if(ok) {
+    closeModal('paymentModal');
+    showSuccess(data.booking);
+  } else {
+    Toast.show(data.message || 'Booking failed. Please try again.', 'error');
+  }
+}
+
+// ─── Show booking success with boarding pass ───
+function showSuccess(booking) {
+  const f = booking.flightId || {};
+  document.getElementById('boardingCard').innerHTML = `
+    <div class="bc-r">
+      <div><div class="bc-l">Booking Ref</div><div class="bc-v" style="color:var(--gold2);font-family:monospace;font-size:16px">${booking.bookingRef}</div></div>
+      <div style="text-align:right"><div class="bc-l">Status</div><span class="badge b-confirmed" style="margin-top:4px">✓ Confirmed</span></div>
+    </div>
+    <div class="bc-r">
+      <div><div class="bc-l">Route</div><div class="bc-v">${f.from?.code||'?'} → ${f.to?.code||'?'}</div></div>
+      <div style="text-align:right"><div class="bc-l">Date</div><div class="bc-v">${fmt.date(f.date)}</div></div>
+    </div>
+    <div class="bc-r">
+      <div><div class="bc-l">Flight</div><div class="bc-v">${f.flightNumber||'—'} · ${f.departureTime||''} – ${f.arrivalTime||''}</div></div>
+      <div style="text-align:right"><div class="bc-l">Class</div><div class="bc-v">${booking.class}</div></div>
+    </div>
+    <div class="bc-r">
+      <div><div class="bc-l">Passenger</div><div class="bc-v">${booking.passengers?.[0]?.name||'—'}</div></div>
+      <div style="text-align:right"><div class="bc-l">Baggage</div><div class="bc-v">${f.baggage||'20kg'}</div></div>
+    </div>
+    <div class="bc-r" style="border-bottom:none">
+      <div><div class="bc-l">Payment Method</div><div class="bc-v">${booking.paymentMethod||'card'}</div></div>
+      <div style="text-align:right"><div class="bc-l">Amount Paid</div><div class="bc-v" style="color:var(--gold2);font-size:18px">${fmt.currency(booking.totalAmount)}</div></div>
+    </div>`;
+  openModal('successModal');
+}
+
+// Init
+initFlights();
+</script>
+</body>
+</html>
